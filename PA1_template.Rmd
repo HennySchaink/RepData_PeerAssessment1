@@ -1,25 +1,220 @@
 ---
-title: "Reproducible Research: Peer Assessment 1"
-output: 
-  html_document:
-    keep_md: true
+title: "Markdown: Reproducible Research Assignement1"
+author: "Henny Schaink"
+date: "Thursday, October 15, 2015"
+output: html_document
 ---
 
+This is an R Markdown document made in fulfilment of assignment 1 of the Coursera course 'Reproducible research'.  
 
-## Loading and preprocessing the data
+Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see 
+<http://rmarkdown.rstudio.com>.  
+Information about assignment 1 can be found on:
+<https://class.coursera.org/repdata-032/human_grading/view/courses/975145/assessments/3/submissions>  
+
+Assignment 1 deals with data about the personal movement gathered using personal activity monitoring devices. On the website of this course is written about the data collection process:
+'This device collects data at
+5 minute intervals through out the day. The data consists of two months of data from an anonymous
+individual collected during the months of October and November, 2012 and include the number of steps
+taken in 5 minute intervals each day.'  
+
+Libraries used in this calculation
+
+```{r}
+  library(graphics)
+  library(grDevices)
+  library(dplyr)
+```
+The data for this analysis is obtained from:
+<https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip> [52K]
+The variables included in this dataset are:
+
+** steps: Number of steps taking in a 5-minute interval (missing values are coded as NA)
+
+** date: The date on which the measurement was taken in YYYY-MM-DD format
+
+** interval: Identifier for the 5-minute interval in which measurement was taken
+
+First the data is read from the input file and stored in the dataframe AllData. Next the data is made suitable for processing, i.e. the data with NA is removed and the cleaned data is stored in the dataframe selectData:
+```{r}
+
+  AllData <- read.csv("activity.csv")
+
+  good_D<-!is.na(AllData$steps)  
+  AllData_labeled<-cbind(AllData,good_D)
+
+  selectData<-filter(AllData_labeled,good_D==TRUE)
+
+  
+
+```
+
+A histogram of the average number steps taken per day:
 
 
+```{r}
 
-## What is mean total number of steps taken per day?
+ number_of_steps<-tapply(selectData$steps,INDEX=selectData$date,FUN=sum)
+ hist(number_of_steps,nclass=dim(number_of_steps), 
+      main="Mean number of steps taken per day",
+      xlab="Number of steps",ylab="Frequency",col="red")
+
+## plot(hist(number_of_steps), main="Number of steps",
+##   xlab="Number of steps",ylab="Day")
+
+```
+
+Calculation of the mean number of steps per day
+
+```{r}
+mean_steps<-tapply(selectData$steps,INDEX=selectData$date,FUN=mean,simplify=TRUE)
+print(mean_steps)
+
+```
+The median of the number of steps taken per day:
+```{r}
+median_steps<-tapply(selectData$steps,INDEX=selectData$date,FUN=median,
+                     simplify=TRUE)
+print(median_steps)
+```
+The construction of a time series plot of the mean number of steps
+```{r}
+
+avSteps_interval<-tapply(selectData$steps,INDEX=selectData$interval,FUN=mean,
+                         simplify=FALSE)
+time_coord<-as.numeric(rownames(avSteps_interval))
+
+plot(x=time_coord,y=avSteps_interval,type="l",
+          xlab="time (minutes)",ylab="number of steps")  
 
 
+```
 
-## What is the average daily activity pattern?
+The highest number of steps in this time series is
+
+```{r}
+
+maxSteps<-max(as.numeric(avSteps_interval))
+maxSteps_Boolean<-maxSteps==as.numeric(avSteps_interval)
+print((as.numeric(avSteps_interval[maxSteps_Boolean==TRUE])))
+
+```
+This occured on time (minutes):
+```{r}
 
 
+print(time_coord[maxSteps_Boolean==TRUE])
 
-## Imputing missing values
+```
+The number of lines in the data file with missing values (i.e.NA) is given by:
+```{r}
+
+Rows_NA<-complete.cases(AllData)
+numbRows_NA<- sum(Rows_NA)
+print(sum(!Rows_NA))
+
+```
+Next all elements with missing values are replaced by the average values for that specific time interval. All missing values are found to be in the steps-column.
+The procedure to replace the missing values, is as follows: 
+
+1) split the AllData into 3 separate vectors (steps,date,interval)  
+
+2) and combine the date- and interval-data in a new dataframe  
+
+```{r}
+
+steps<-AllData[,1]
+date<-AllData[,2]
+interval<-AllData[,3]
+date_interval<-data.frame(date,interval)
+```
+
+3) Locate and replace the NA in the vector steps by the corresponding average value for that time interval. Since the length of the array with the average values is unknown up to this moment, this values has to be determined first. It is stored in avSteps_length.  
+
+```{r}
+dim_AllData<-dim(AllData)
+All<-as.numeric(dim_AllData[1])
+avSteps_length<-(dim(avSteps_interval))
+
+ilabel<-0
+for (i in (1:All)) {
+  ilabel<-ilabel+1
+  if(ilabel>avSteps_length) {
+    ilabel<-ilabel-avSteps_length
+  }
+  if(is.na(steps[i])==TRUE) {
+     steps[i]<-as.numeric(avSteps_interval[ilabel])
+  }
+  
+ }
+```
+
+4) The new steps vector is combined with the data frame date_interval:  
+
+```{r}
+ 
+AllData_new<-data.frame(steps,date_interval)
+
+```
+
+Using this new set of data a new histrogram is made, relating the average number of steps to the days:
+```{r}
+number_of_steps<-tapply(AllData_new$steps,INDEX=AllData_new$date,FUN=sum)
+
+hist(number_of_steps,nclass=dim(number_of_steps), 
+      main="Mean number of steps taken per day",
+      xlab="Number of steps",ylab="Frequency")
+
+```
+
+A new value for the average number of steps:
+```{r}
+mean_steps<-tapply(AllData_new$steps,INDEX=AllData_new$date,FUN=mean)
+print((mean_steps))
+
+```
+A new value for the median:
+```{r}
+median_steps<-tapply(AllData_new$steps,INDEX=AllData_new$date,FUN=median)
+print(median_steps)
+
+```
+Finally the difference between weekdays and weekend is studied. First the saturdays and sundays are identified. Using this information a new dataframe (AllData_new_daytype) is constructed which identifies which is measured on weekend and which on weekedays. 
+```{r}
+day<-weekdays(as.Date(AllData_new$date)  )
+print(str(day))
+weekend_Day1<-day=="Saturday"
+weekend_Day2<-day=="Sunday"
+weekend_Day<-weekend_Day1+weekend_Day2+1
+
+dayType<-c("Weekday", "Weekend")
+
+Day_Type<-(dayType[weekend_Day])
+
+AllData_new_daytype<-data.frame(AllData_new,day,Day_Type)
+```
+The mean values for the weekends and weekdays are calculated:
+```{r}
+daytype_Data<-filter(AllData_new_daytype,AllData_new_daytype$Day_Type=="Weekend")
+
+avSteps_Weekend<-tapply(daytype_Data$steps,INDEX=daytype_Data$interval,FUN=mean,
+                         simplify=FALSE)
 
 
+daytype_Data<-filter(AllData_new_daytype,AllData_new_daytype$Day_Type=="Weekday")
 
-## Are there differences in activity patterns between weekdays and weekends?
+avSteps_Weekday<-tapply(daytype_Data$steps,INDEX=daytype_Data$interval,FUN=mean,
+                        simplify=FALSE)
+
+```
+The results for the weekend and weekdays are plotted in a time series:
+```{r}
+time_coord<-as.numeric(rownames(avSteps_Weekday))
+par(mar=c(2,3,3,2),mfrow=c(2,1))
+
+plot(x=time_coord,y=avSteps_Weekday,type="l",xlab="time",ylab="number of steps") 
+    legend("topright",legend ="Weekdays")
+
+plot(x=time_coord,y=avSteps_Weekend,type="l",xlab="time",ylab="number of steps")  
+    legend("topright",legend ="Weekend")
+```
